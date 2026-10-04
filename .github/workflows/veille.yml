@@ -1,0 +1,45 @@
+# Lance chaque nuit le scan de veille InfoAscent (pubs d'infopreneurs sur Meta). Le code vit dans un
+# repo privé ; ce repo ne contient que ce fichier. La sortie ne montre que des compteurs.
+name: veille
+on:
+  # 2 h 37 à Paris l'été (1 h 37 l'hiver), fini avant 8 h. Minutes décalées et un créneau de secours :
+  # GitHub retarde souvent les lancements planifiés. Un passage déjà fait dans les 20 h sort tout de suite.
+  schedule:
+    - cron: '37 0 * * *'
+    - cron: '11 3 * * *'   # secours
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'Durée max en minutes (vide = 320)'
+        required: false
+      only:
+        description: 'Une seule étape : search, advertisers, reach, landings (vide = tout)'
+        required: false
+concurrency: veille
+permissions:
+  contents: read
+  actions: write   # uniquement pour se réactiver (voir la dernière étape)
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: infoascent/infoascent-veille
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --silent
+      - run: npx playwright install --with-deps chromium > /dev/null
+      - run: node run.mjs ${{ inputs.minutes && format('--minutes {0}', inputs.minutes) || '' }} ${{ inputs.only && format('--only {0}', inputs.only) || '' }} ${{ github.event_name == 'schedule' && '--once-a-day' || '' }}
+        env:
+          CLOUD: '1'
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      # GitHub coupe les lancements planifiés d'un repo public sans activité depuis 60 jours.
+      - if: always()
+        run: gh api -X PUT repos/${{ github.repository }}/actions/workflows/veille.yml/enable
+        env:
+          GH_TOKEN: ${{ github.token }}
