@@ -2,11 +2,9 @@
 # repo privé ; ce repo ne contient que ce fichier. La sortie ne montre que des compteurs.
 name: veille
 on:
-  # 2 h 37 à Paris l'été (1 h 37 l'hiver), fini avant 8 h. Minutes décalées et un créneau de secours :
-  # GitHub retarde souvent les lancements planifiés. Un passage déjà fait dans les 20 h sort tout de suite.
-  schedule:
-    - cron: '37 0 * * *'
-    - cron: '11 3 * * *'   # secours
+  # Plus de planning : Meta bloque les adresses des serveurs GitHub (constaté le 2026-10-04, 0 pub
+  # renvoyée sur deux essais). Le scan tourne sur le Mac (launchd com.infoascent.veille).
+  # Lancement à la main seulement, pour tester si le blocage a sauté.
   workflow_dispatch:
     inputs:
       minutes:
